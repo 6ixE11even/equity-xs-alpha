@@ -41,3 +41,16 @@ def test_newey_west_downweights_autocorrelation():
     naive_t = s.mean() / (s.std() / np.sqrt(len(s)))
     nw_t = ic.newey_west_tstat(s, lags=10)
     assert nw_t < naive_t
+
+
+def test_equal_weight_combo_aligns_on_tickers_not_positions():
+    """np.nanmean over .to_numpy() averaged by column position, so a signal whose
+    columns came back in a different order blended into the wrong tickers."""
+    from xsalpha.ml import equal_weight_combo
+
+    idx = pd.date_range("2020-01-31", periods=3, freq="ME")
+    a = pd.DataFrame(1.0, index=idx, columns=["AAA", "BBB", "CCC"])
+    b = pd.DataFrame([[10.0, 20.0, 30.0]] * 3, index=idx, columns=["CCC", "BBB", "AAA"])
+    combo = equal_weight_combo({"a": a, "b": b})
+    assert abs(combo.loc[idx[0], "AAA"] - 15.5) < 1e-12
+    assert abs(combo.loc[idx[0], "CCC"] - 5.5) < 1e-12

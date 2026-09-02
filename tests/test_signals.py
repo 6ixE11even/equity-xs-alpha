@@ -58,3 +58,21 @@ def test_winsorize_clips_outliers():
     df = pd.DataFrame([[0.0] * 20 + [100.0]])
     w = signals.winsorize_xs(df, k=3)
     assert w.iloc[0, -1] < 100.0
+
+
+def test_zero_mad_cross_section_is_not_flattened():
+    """More than half the names sharing a value gives MAD = 0; the clip then
+    collapsed the whole row onto the median and z-scoring returned all NaN."""
+    from xsalpha.signals import clean
+
+    df = pd.DataFrame([[1.0, 1.0, 1.0, 1.0, 5.0, 9.0]], columns=list("ABCDEF"))
+    out = clean(df).iloc[0]
+    assert out.notna().all()
+    assert out["F"] > out["E"] > out["A"]
+
+
+def test_flat_cross_section_is_nan_not_inf():
+    from xsalpha.signals import zscore_xs
+
+    out = zscore_xs(pd.DataFrame([[2.0, 2.0, 2.0]], columns=list("ABC")))
+    assert out.isna().all().all()

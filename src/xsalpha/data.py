@@ -30,7 +30,16 @@ def download_prices(
     cache_px = CACHE_DIR / "adj_close.parquet"
     cache_dv = CACHE_DIR / "dollar_vol.parquet"
     if cache and cache_px.exists() and cache_dv.exists():
-        return pd.read_parquet(cache_px), pd.read_parquet(cache_dv)
+        px_c, dv_c = pd.read_parquet(cache_px), pd.read_parquet(cache_dv)
+        # The cache was returned for any request at all, so a panel built from
+        # last year's universe answered a call for this year's, and a widened
+        # ticker list came back with the old names and no warning.
+        missing = set(tickers) - set(px_c.columns)
+        stale = len(px_c) and px_c.index.min() > pd.Timestamp(start)
+        if not missing and not stale:
+            return px_c[list(tickers)], dv_c[list(tickers)]
+        print(f"  cache miss: {len(missing)} tickers absent"
+              f"{', history starts late' if stale else ''} - refetching")
 
     raw = yf.download(
         tickers,

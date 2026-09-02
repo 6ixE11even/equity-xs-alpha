@@ -66,18 +66,32 @@ def skew_120d(px: pd.DataFrame, dates: pd.DatetimeIndex) -> pd.DataFrame:
 
 
 def winsorize_xs(df: pd.DataFrame, k: float = 3.0) -> pd.DataFrame:
-    """Clip each row (cross-section) at median +/- k * MAD."""
+    """Clip each row (cross-section) at median +/- k * MAD.
+
+    A cross-section where more than half the names share a value has MAD = 0, and
+    the clip then flattened the whole row onto the median - taking with it the
+    dispersion the signal was there to measure, and leaving z-scoring to divide by
+    zero and return NaN for the date. Those rows fall back to a standard-deviation
+    scale, which is less robust but still separates the names. When even that is
+    zero the row genuinely carries no information and is left alone.
+    """
     med = df.median(axis=1)
     mad = (df.sub(med, axis=0)).abs().median(axis=1)
-    lo = med - k * 1.4826 * mad
-    hi = med + k * 1.4826 * mad
+    scale = k * 1.4826 * mad
+    fallback = k * df.std(axis=1)
+    scale = scale.where(scale > 0, fallback)
+    degenerate = ~(scale > 0)
+    lo = (med - scale).mask(degenerate, -np.inf)
+    hi = (med + scale).mask(degenerate, np.inf)
     return df.clip(lower=lo, upper=hi, axis=0)
 
 
 def zscore_xs(df: pd.DataFrame) -> pd.DataFrame:
     mu = df.mean(axis=1)
     sd = df.std(axis=1)
-    return df.sub(mu, axis=0).div(sd, axis=0)
+    # A row with no dispersion carries no cross-sectional information. Dividing by
+    # zero would give inf where NaN - "this date has no signal" - is the truth.
+    return df.sub(mu, axis=0).div(sd.where(sd > 0), axis=0)
 
 
 def clean(df: pd.DataFrame) -> pd.DataFrame:
