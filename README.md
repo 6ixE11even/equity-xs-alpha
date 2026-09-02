@@ -105,19 +105,21 @@ portfolio, same costs — so the comparison against the equal-weight signal comb
 ## Results
 
 <!-- RESULTS:BEGIN -->
-From the committed run — 496 names, 2010-01 to 2026-07, monthly rebalance, 10 bps
-one-way costs. Full tables in `reports/results.md`.
+Regenerated 2026-09-02 with `uv run python scripts/run_research.py`. 494 names,
+2010-01 to 2026-09, monthly rebalance, 10 bps one-way. Full tables in
+`reports/results.md`. (503 tickers scraped; PLTR failed to download and eight more
+had under three years of history.)
 
 **Standalone signal ICs** (full sample, Newey-West t-stats at 6 lags):
 
-| signal | mean IC | IC IR | NW t | hit rate |
-|---|---|---|---|---|
-| amihud | 0.031 | 1.11 | **5.17** | 62% |
-| mom_12_1 | 0.009 | 0.17 | 0.78 | 55% |
-| strev_1m | 0.007 | 0.15 | 0.74 | 47% |
-| skew_120d | -0.005 | -0.18 | -0.74 | 45% |
-| max5 | -0.015 | -0.26 | -1.17 | 48% |
-| lowvol_60d | -0.024 | -0.35 | -1.55 | 46% |
+| signal | mean IC | IC IR | NW t | hit rate | months |
+|---|---|---|---|---|---|
+| amihud | 0.032 | 1.14 | **5.36** | 63% | 197 |
+| mom_12_1 | 0.008 | 0.14 | 0.67 | 55% | 188 |
+| strev_1m | 0.006 | 0.13 | 0.61 | 48% | 199 |
+| skew_120d | -0.005 | -0.18 | -0.74 | 46% | 195 |
+| max5 | -0.015 | -0.26 | -1.17 | 48% | 199 |
+| lowvol_60d | -0.023 | -0.33 | -1.51 | 47% | 198 |
 
 Only the illiquidity premium clears significance standalone. Momentum and short-term
 reversal are directionally right but weak in this sample; low-vol and the lottery
@@ -125,20 +127,34 @@ signals actually inverted over 2010-2026 in S&P 500 names — a useful reminder 
 published premia are regime- and universe-dependent.
 
 **Long-short quintile portfolios, net of costs** (OOS window = the ML model's
-walk-forward test period, ~2015 onward):
+walk-forward test period, 2015-02 onward, 139 months):
 
 | portfolio | ann. ret | ann. vol | Sharpe | max DD | avg turnover |
 |---|---|---|---|---|---|
-| amihud | 8.4% | 8.2% | 1.03 | -13% | 0.12 |
-| **ml_combo** | **7.4%** | **8.4%** | **0.89** | **-8%** | 1.11 |
-| mom_12_1 | 2.9% | 15.6% | 0.19 | -37% | 0.46 |
-| equal_weight_combo | -9.3% | 14.8% | -0.63 | -76% | 1.02 |
+| amihud | 8.7% | 8.1% | **1.07** | -13.5% | 0.14 |
+| **ml_combo** | **6.6%** | **8.6%** | **0.77** | **-9.8%** | 1.12 |
+| mom_12_1 | 1.9% | 15.9% | 0.12 | -36.3% | 0.46 |
+| strev_1m | -3.9% | 13.6% | -0.29 | -57.3% | 1.55 |
+| skew_120d | -2.5% | 7.6% | -0.33 | -40.4% | 0.52 |
+| equal_weight_combo | -8.7% | 15.0% | -0.58 | -74.1% | 1.03 |
+| lowvol_60d | -15.0% | 19.4% | -0.77 | -87.9% | 0.45 |
+| max5 | -14.5% | 17.2% | -0.84 | -86.4% | 1.13 |
 
-The interesting result is the last row against the second: naively averaging six
-z-scored signals — three of which have negative ICs — loses money, while the purged
-walk-forward LightGBM learns out-of-sample which signals carry information and gets
-within hailing distance of the best standalone signal with a third of its drawdown.
+The interesting result is `equal_weight_combo` against `ml_combo`. Naively averaging
+six z-scored signals — three of which have negative ICs — loses 8.7% a year, while the
+purged walk-forward LightGBM learns out-of-sample which signals carry information and
+lands within 2 points of the best standalone signal at three quarters of its drawdown.
 The model isn't manufacturing alpha; it's doing signal selection honestly.
+
+Note the turnover column next to it. `amihud` earns its Sharpe on 0.14 turnover;
+`ml_combo` needs 1.12 to earn less. At 10 bps that gap is affordable and at 50 bps it
+is not, which is the more useful thing to know about the ML model than its Sharpe.
+
+<sub>These numbers moved slightly from the previously committed table (amihud Sharpe
+1.03 → 1.07, ml_combo 0.89 → 0.77). Three reasons, in order of size: the sample now
+runs two months longer and prices are re-adjusted; the quintile legs used to be
+unbalanced, taking 21 long names against 20 short; and cross-sections whose MAD was
+zero used to be dropped entirely by the winsorizer. See the commit history.</sub>
 <!-- RESULTS:END -->
 
 ![IC summary](reports/figures/ic_summary.png)
