@@ -67,10 +67,18 @@ def ml_scores(
     from lightgbm import LGBMRegressor
 
     dates = fwd_ret.index
-    X = _stack(signals, dates).dropna()
+    # Drop a row only when its label is missing. Listwise deletion on the features
+    # was here before, and it makes the model's training set a function of the
+    # *sparsest* signal in the set: adding the EDGAR tone feature, which does not
+    # exist before 2016 and is missing for any name between filings, deleted every
+    # row it was absent from and cost the model a third of its observations. The
+    # resulting drop in Sharpe then looks like evidence that the signal is harmful
+    # when it is evidence that dropna is. LightGBM chooses a default direction for
+    # missing values at each split, so a NaN feature costs that row nothing.
+    X = _stack(signals, dates)
     y = fwd_ret.stack().reindex(X.index)
-    ok = y.notna()
-    X, y = X[ok], y[ok]
+    keep = y.notna() & X.notna().any(axis=1)
+    X, y = X[keep], y[keep]
     # label: cross-sectional percentile rank of forward return
     y_rank = y.groupby(level=0).rank(pct=True)
 

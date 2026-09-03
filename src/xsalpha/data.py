@@ -35,7 +35,14 @@ def download_prices(
         # last year's universe answered a call for this year's, and a widened
         # ticker list came back with the old names and no warning.
         missing = set(tickers) - set(px_c.columns)
-        stale = len(px_c) and px_c.index.min() > pd.Timestamp(start)
+        # Compare against the requested start with a week of slack. The exact test
+        # was `index.min() > start`, and since 2010-01-01 is a holiday the cached
+        # panel always began on the 4th and always looked stale: the cache never once
+        # hit, every run re-downloaded, and the ML combo's Sharpe moved by 0.09
+        # between runs on nothing but Yahoo's latest adjustments. An ablation whose
+        # effect is smaller than that is unmeasurable.
+        slack = pd.Timedelta(days=7)
+        stale = len(px_c) and px_c.index.min() > pd.Timestamp(start) + slack
         if not missing and not stale:
             return px_c[list(tickers)], dv_c[list(tickers)]
         print(f"  cache miss: {len(missing)} tickers absent"

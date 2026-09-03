@@ -7,3 +7,10 @@ data/*.parquet
 *.egg-info/
 dist/
 .DS_Store
+
+# EDGAR caches: all refetchable. tone_scores.parquet is the research output and is
+# tracked - it is five hours of SEC rate limit and every number in the README is in it.
+data/edgar/index/
+data/edgar/text/
+data/edgar/company_tickers.json
+data/edgar/lm_master_dictionary.csv

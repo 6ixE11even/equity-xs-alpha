@@ -12,6 +12,8 @@ Signals implemented (see README for the math and references):
     max5       lottery effect (negative of mean of 5 largest daily returns, 21d)
     amihud     illiquidity premium (Amihud 2002), 63d window
     skew_120d  negative coskewness proxy (negative of 120d return skewness)
+    tone_chg   change in Loughran-McDonald net tone between a company's consecutive
+               SEC filings (see text.py); only present when the EDGAR panel is built
 """
 
 from __future__ import annotations
@@ -98,8 +100,25 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     return zscore_xs(winsorize_xs(df))
 
 
+def tone_chg(tone_scores: pd.DataFrame, dates: pd.DatetimeIndex,
+             px_columns: pd.Index, by_form: bool = True) -> pd.DataFrame:
+    """Change in filing tone, aligned to the price panel and the rebalance dates.
+
+    Sign convention: the panel keeps the sign of the tone change, so a company whose
+    language turned *less* negative than its own last filing scores high. That is the
+    direction Loughran-McDonald report, and it is a claim the IC either supports or
+    does not - it is not imposed here by flipping a sign until the backtest works.
+    """
+    from xsalpha.text import as_monthly_signal, tone_change_panel
+
+    panel = tone_change_panel(tone_scores, by_form=by_form)
+    monthly = as_monthly_signal(panel, dates)
+    return monthly.reindex(columns=px_columns)
+
+
 def build_signal_panel(
-    px: pd.DataFrame, dollar_vol: pd.DataFrame, dates: pd.DatetimeIndex
+    px: pd.DataFrame, dollar_vol: pd.DataFrame, dates: pd.DatetimeIndex,
+    tone_scores: pd.DataFrame | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Compute all signals, cleaned, keyed by name."""
     raw = {
@@ -110,4 +129,7 @@ def build_signal_panel(
         "amihud": amihud(px, dollar_vol, dates),
         "skew_120d": skew_120d(px, dates),
     }
+    if tone_scores is not None and len(tone_scores):
+        raw["tone_chg"] = tone_chg(tone_scores, dates, px.columns, by_form=True)
+        raw["tone_chg_naive"] = tone_chg(tone_scores, dates, px.columns, by_form=False)
     return {name: clean(df) for name, df in raw.items()}
